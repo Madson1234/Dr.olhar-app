@@ -1,0 +1,848 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{--acc:#1B6FE3;--acc-d:#0E4FAE;--bg:#EEF1F4;--surf:#FFFFFF;--surf2:#F5F7F9;--ink:#0F1720;--mut:#57646F;--line:#E1E6EB;--ok:#1B8C5A;--ok-txt:#0F6B45;--warn:#C9821B;--bad:#C33B2E;--chip:#EDF3FD}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Public Sans',system-ui,sans-serif;color:var(--ink);-webkit-font-smoothing:antialiased}
+a{color:var(--acc);text-decoration:none}
+a:hover{color:var(--acc-d)}
+@keyframes pulso{0%{transform:translate(-50%,-50%) scale(1);opacity:.9}70%{transform:translate(-50%,-50%) scale(2.6);opacity:0}100%{transform:translate(-50%,-50%) scale(2.6);opacity:0}}
+@keyframes girar{to{transform:rotate(360deg)}}
+@keyframes subir{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@keyframes tremer{0%,100%{transform:translateX(0)}25%{transform:translateX(-2px)}75%{transform:translateX(2px)}}
+</style>
+</helmet>
+<div style="display:flex;align-items:flex-start;gap:40px;padding:36px 40px 60px;min-height:100vh">
+
+  <sc-if value="{{ comChrome }}" hint-placeholder-val="{{ true }}">
+  <aside style="width:288px;flex:none;position:sticky;top:36px;display:flex;flex-direction:column;gap:22px">
+    <div>
+      <div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:var(--mut);text-transform:uppercase">Dr. Olhar · SaMD Classe II</div>
+      <h1 style="margin:10px 0 6px;font:600 26px/1.15 'Public Sans',sans-serif;letter-spacing:-.02em">App do Agente<br>Comunitário</h1>
+      <p style="margin:0;font:400 13.5px/1.5 'Public Sans',sans-serif;color:var(--mut);text-wrap:pretty">Coleta guiada de ausculta pulmonar em domicílio. Fluxo clicável conforme SRS A.01 — seções 4.1, 5 e 6.1.</p>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:2px">
+      <div style="font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:var(--mut);text-transform:uppercase;margin-bottom:8px">Fluxo</div>
+      <sc-for list="{{ mapaFluxo }}" as="p" hint-placeholder-count="8">
+        <button onClick="{{ p.ir }}" style="display:flex;align-items:center;gap:10px;width:100%;text-align:left;border:0;background:{{ p.bg }};padding:9px 10px;border-radius:9px;cursor:pointer;font-family:'Public Sans',sans-serif" style-hover="background:#E3E9EF">
+          <span style="width:22px;height:22px;flex:none;border-radius:6px;display:flex;align-items:center;justify-content:center;font:600 10px/1 'IBM Plex Mono',monospace;background:{{ p.numBg }};color:{{ p.numCor }}">{{ p.n }}</span>
+          <span style="flex:1;min-width:0;font:500 13px/1.25 'Public Sans',sans-serif;color:{{ p.cor }}">{{ p.rotulo }}</span>
+          <span style="font:500 9.5px/1 'IBM Plex Mono',monospace;color:var(--mut)">{{ p.req }}</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="border-top:1px solid var(--line);padding-top:16px;display:flex;flex-direction:column;gap:10px">
+      <div style="font:600 10.5px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;color:var(--mut);text-transform:uppercase">Simulação</div>
+      <button onClick="{{ alternarRede }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);background:var(--surf);padding:10px 12px;border-radius:9px;cursor:pointer;font:500 13px/1 'Public Sans',sans-serif;color:var(--ink)" style-hover="border-color:#C8D2DB">
+        <span>Conexão</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:{{ redeCor }}">{{ redeRotulo }}</span>
+      </button>
+      <button onClick="{{ alternarRuido }}" style="display:flex;align-items:center;justify-content:space-between;gap:8px;border:1px solid var(--line);background:var(--surf);padding:10px 12px;border-radius:9px;cursor:pointer;font:500 13px/1 'Public Sans',sans-serif;color:var(--ink)" style-hover="border-color:#C8D2DB">
+        <span>Ruído ambiente</span><span style="font:600 11px/1 'IBM Plex Mono',monospace;color:{{ ruidoCor }}">{{ ruidoRotulo }}</span>
+      </button>
+      <button onClick="{{ reiniciar }}" style="border:0;background:transparent;padding:2px;text-align:left;cursor:pointer;font:500 12.5px/1 'Public Sans',sans-serif;color:var(--mut);text-decoration:underline">Reiniciar visita</button>
+    </div>
+  </aside>
+  </sc-if>
+
+  <main style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:18px">
+    <x-import component-from-global-scope="AndroidDevice" from="./android-frame.jsx" dc-props="{{ devProps }}" hint-size="412px,892px">
+
+      <!-- ══ 01 LOGIN ══ -->
+      <sc-if value="{{ ehLogin }}" hint-placeholder-val="{{ true }}">
+        <div style="height:812px;overflow:hidden;display:flex;flex-direction:column;padding:0 24px;background:var(--surf)">
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:28px">
+            <div style="display:flex;flex-direction:column;align-items:center;text-align:center">
+              <div style="width:46px;height:46px;border-radius:13px;background:var(--acc);display:flex;align-items:center;justify-content:center;margin-bottom:20px">
+                <div style="width:16px;height:16px;border-radius:50%;border:3px solid #fff"></div>
+              </div>
+              <div style="font:700 30px/1.1 'Public Sans',sans-serif;letter-spacing:-.025em">Dr. Olhar</div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:12px">
+              <label style="display:block">
+                <span style="display:block;font:600 12px/1 'Public Sans',sans-serif;color:var(--mut);margin-bottom:7px">CPF do agente</span>
+                <div style="height:56px;border:1.5px solid var(--line);border-radius:12px;display:flex;align-items:center;padding:0 16px;font:500 18px/1 'IBM Plex Mono',monospace;background:var(--surf2)">821.443.190-05</div>
+              </label>
+              <label style="display:block">
+                <span style="display:block;font:600 12px/1 'Public Sans',sans-serif;color:var(--mut);margin-bottom:7px">Senha</span>
+                <div style="height:56px;border:1.5px solid var(--line);border-radius:12px;display:flex;align-items:center;padding:0 16px;font:500 20px/1 'IBM Plex Mono',monospace;letter-spacing:.3em;background:var(--surf2)">••••••</div>
+              </label>
+            </div>
+            <button onClick="{{ entrar }}" style="height:60px;border:0;border-radius:14px;background:var(--acc);color:#fff;font:600 17px/1 'Public Sans',sans-serif;cursor:pointer" style-hover="background:var(--acc-d)">Entrar</button>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:14px;border-radius:12px;background:var(--chip)">
+              <div style="width:8px;height:8px;border-radius:50%;background:var(--acc);margin-top:5px;flex:none"></div>
+              <div style="font:400 13px/1.45 'Public Sans',sans-serif;color:#2A4A72">Login válido por 12 h em modo offline. Os dados coletados ficam criptografados no aparelho até haver rede.</div>
+            </div>
+          </div>
+          <div style="padding:20px 0;text-align:center;font:400 11.5px/1 'IBM Plex Mono',monospace;color:var(--mut)">v A.01 · RDC 751 · LGPD</div>
+        </div>
+      </sc-if>
+
+      <!-- ══ 02 HOJE ══ -->
+      <sc-if value="{{ ehHoje }}" hint-placeholder-val="{{ false }}">
+        <div style="position:relative;height:812px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)">
+          <div style="background:var(--surf);padding:18px 20px 16px;border-bottom:1px solid var(--line)">
+            <div style="display:flex;align-items:center;justify-content:space-between">
+              <div>
+                <div style="font:400 13px/1 'Public Sans',sans-serif;color:var(--mut)">Segunda, 16 nov</div>
+                <div style="font:700 24px/1.2 'Public Sans',sans-serif;letter-spacing:-.02em;margin-top:3px">Pacientes</div>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px">
+                <div style="display:flex;align-items:center;gap:6px;padding:7px 11px;border-radius:20px;background:{{ redeChipBg }}">
+                  <span style="width:7px;height:7px;border-radius:50%;background:{{ redeCor }}"></span>
+                  <span style="font:600 11px/1 'IBM Plex Mono',monospace;color:{{ redeCor }}">{{ redeRotulo }}</span>
+                </div>
+                <button onClick="{{ irCadastro }}" aria-label="Cadastrar paciente" style="width:30px;height:30px;flex:none;border:0;border-radius:9px;background:var(--acc);color:#fff;cursor:pointer;font:300 18px/1 'Public Sans',sans-serif;display:flex;align-items:center;justify-content:center;padding:0 0 1px" style-hover="background:var(--acc-d)">+</button>
+              </div>
+            </div>
+            <div style="display:flex;gap:8px;margin-top:14px">
+              <div style="flex:1;padding:11px 12px;border-radius:11px;background:var(--surf2)">
+                <div style="font:700 20px/1 'Public Sans',sans-serif">{{ totalVisitas }}</div>
+                <div style="font:400 11.5px/1 'Public Sans',sans-serif;color:var(--mut);margin-top:5px">agendadas</div>
+              </div>
+              <div style="flex:1;padding:11px 12px;border-radius:11px;background:var(--surf2)">
+                <div style="font:700 20px/1 'Public Sans',sans-serif;color:var(--ok-txt)">1</div>
+                <div style="font:400 11.5px/1 'Public Sans',sans-serif;color:var(--mut);margin-top:5px">concluídas</div>
+              </div>
+            </div>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px">
+            <sc-for list="{{ pacientes }}" as="p" hint-placeholder-count="4">
+              <div style="display:flex;align-items:stretch;gap:0;width:100%;background:var(--surf);border:1px solid var(--line);border-left:4px solid {{ p.risco }};border-radius:13px;overflow:hidden" style-hover="border-color:#C8D2DB">
+                <button onClick="{{ p.abrir }}" style="flex:1;min-width:0;display:flex;align-items:center;gap:13px;text-align:left;background:transparent;border:0;padding:15px 4px 15px 14px;cursor:pointer;font-family:'Public Sans',sans-serif">
+                <div style="flex:1;min-width:0">
+                  <div style="font:600 16.5px/1.2 'Public Sans',sans-serif;color:var(--ink)">{{ p.nome }}</div>
+                  <div style="font:400 13px/1.3 'Public Sans',sans-serif;color:var(--mut);margin-top:4px">{{ p.detalhe }}</div>
+                </div>
+                <div style="display:flex;flex-direction:column;align-items:flex-end;gap:8px;flex:none">
+                  <div style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:var(--mut)">{{ p.hora }}</div>
+                  <div style="width:26px;height:26px;border-radius:8px;background:{{ p.syncBg }};display:flex;align-items:center;justify-content:center;color:{{ p.syncCor }}">
+                    <sc-if value="{{ p.ehNuvem }}" hint-placeholder-val="{{ false }}">
+                      <svg width="15" height="15" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M14 34a8 8 0 0 1-.6-15.97A11 11 0 0 1 34.4 20.2 7 7 0 0 1 34 34z"></path></svg>
+                    </sc-if>
+                    <sc-if value="{{ p.ehEnviando }}" hint-placeholder-val="{{ true }}">
+                      <svg width="14" height="14" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="4.2" stroke-linecap="round" stroke-linejoin="round"><path d="M24 36V12"></path><path d="M14 22l10-10 10 10"></path></svg>
+                    </sc-if>
+                    <sc-if value="{{ p.ehOffline }}" hint-placeholder-val="{{ false }}">
+                      <svg width="15" height="15" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M8 19a24 24 0 0 1 32 0"></path><path d="M16 27a14 14 0 0 1 16 0"></path><path d="M10 40L38 10"></path></svg>
+                    </sc-if>
+                  </div>
+                </div>
+                </button>
+                <button onClick="{{ p.pedirExcluir }}" aria-label="Excluir paciente" style="width:36px;flex:none;border:0;border-left:1px solid var(--line);background:transparent;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--mut)" style-hover="background:#FBECEA;color:#C33B2E">
+                  <svg width="21" height="21" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M8 14h32"></path>
+                    <path d="M19 14V9.5h10V14"></path>
+                    <path d="M13 14l1.8 24.5h18.4L35 14"></path>
+                    <path d="M20.5 21v11M27.5 21v11" stroke-width="3"></path>
+                  </svg>
+                </button>
+              </div>
+            </sc-for>
+            <div style="margin-top:6px;display:flex;gap:9px;align-items:flex-start;padding:13px;border-radius:12px;border:1px dashed var(--line)">
+              <span style="font:600 10px/1 'IBM Plex Mono',monospace;color:var(--mut);margin-top:2px">UX-05</span>
+              <div style="font:400 12.5px/1.45 'Public Sans',sans-serif;color:var(--mut)">O ícone à direita mostra o envio de cada visita: nuvem sincronizado, flecha em envio, rede cortada sem conexão.</div>
+            </div>
+          </div>
+
+          <!-- confirmar exclusão -->
+      <sc-if value="{{ mostrarExcluir }}" hint-placeholder-val="{{ false }}">
+        <div style="position:absolute;inset:0;z-index:30;background:rgba(15,23,32,.55);display:flex;align-items:center;justify-content:center;padding:24px">
+          <div style="width:100%;max-width:320px;background:var(--surf);border-radius:20px;padding:26px 22px 20px;display:flex;flex-direction:column;gap:18px;box-shadow:0 18px 48px rgba(15,23,32,.3);animation:subir .22s ease both">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center">
+              <div style="width:64px;height:64px;border-radius:50%;background:#FBECEA;display:flex;align-items:center;justify-content:center;color:#C33B2E">
+                <svg width="30" height="30" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M9 15h30"></path>
+                  <path d="M19 15v-4h10v4"></path>
+                  <path d="M13 15l2 24h18l2-24"></path>
+                </svg>
+              </div>
+              <div>
+                <div style="font:700 19px/1.25 'Public Sans',sans-serif;letter-spacing:-.01em">Excluir paciente</div>
+                <div style="font:400 13.5px/1.45 'Public Sans',sans-serif;color:var(--mut);margin-top:8px;text-wrap:pretty">{{ excluirTexto }}</div>
+              </div>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <button onClick="{{ confirmarExcluir }}" style="width:100%;height:54px;border:0;border-radius:14px;background:#C33B2E;color:#fff;font:600 16px/1 'Public Sans',sans-serif;cursor:pointer" style-hover="background:#A62E23">Excluir</button>
+              <button onClick="{{ cancelarExcluir }}" style="width:100%;height:52px;border:1.5px solid var(--line);border-radius:14px;background:var(--surf);color:var(--ink);font:600 16px/1 'Public Sans',sans-serif;cursor:pointer" style-hover="border-color:#C8D2DB">Cancelar</button>
+            </div>
+          </div>
+        </div>
+      </sc-if>
+        </div>
+      </sc-if>
+
+      <!-- ══ 02b CADASTRO DE PACIENTE ══ -->
+      <sc-if value="{{ ehCadastro }}" hint-placeholder-val="{{ false }}">
+        <div style="height:812px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)">
+          <div style="background:var(--surf);padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px">
+            <button onClick="{{ voltarHoje }}" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surf);cursor:pointer;font:500 17px/1 'Public Sans',sans-serif;color:var(--ink)">←</button>
+            <div style="flex:1;min-width:0">
+              <div style="font:600 16px/1.2 'Public Sans',sans-serif">Cadastrar paciente</div>
+              <div style="font:400 12.5px/1 'Public Sans',sans-serif;color:var(--mut);margin-top:3px">Dados de identificação</div>
+            </div>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px">
+            <sc-for list="{{ campos }}" as="c" hint-placeholder-count="4">
+              <label style="display:block">
+                <span style="display:block;font:600 12px/1 'Public Sans',sans-serif;color:var(--mut);margin-bottom:7px">{{ c.rotulo }}</span>
+                <input value="{{ c.valor }}" onChange="{{ c.mudar }}" placeholder="{{ c.dica }}" inputmode="{{ c.modo }}" style="width:100%;height:56px;box-sizing:border-box;border:1.5px solid {{ c.borda }};border-radius:12px;padding:0 16px;background:var(--surf);color:var(--ink);font:500 16px/1 {{ c.fonte }};outline:none" style-focus="border-color:#1B6FE3">
+                <sc-if value="{{ c.temErro }}" hint-placeholder-val="{{ false }}">
+                  <span style="display:block;font:500 11.5px/1.3 'Public Sans',sans-serif;color:var(--bad);margin-top:6px">{{ c.erro }}</span>
+                </sc-if>
+              </label>
+            </sc-for>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border-radius:12px;background:var(--chip)">
+              <span style="font:600 10px/1 'IBM Plex Mono',monospace;color:var(--acc);margin-top:3px">LGPD</span>
+              <div style="font:400 12.5px/1.45 'Public Sans',sans-serif;color:#2A4A72">Dados gravados criptografados no aparelho e vinculados ao prontuário no próximo envio.</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px 18px;background:var(--surf);border-top:1px solid var(--line)">
+            <button onClick="{{ salvarPaciente }}" style="width:100%;height:60px;border:0;border-radius:14px;background:{{ salvarBg }};color:#fff;font:600 17px/1 'Public Sans',sans-serif;cursor:pointer">{{ salvarTexto }}</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ 04 MAPA CORPORAL ══ -->
+      <sc-if value="{{ ehMapa }}" hint-placeholder-val="{{ false }}">
+        <div style="position:relative;height:812px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)">
+          <div style="background:var(--surf);padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px">
+            <button onClick="{{ voltarHoje }}" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surf);cursor:pointer;font:500 17px/1 'Public Sans',sans-serif;color:var(--ink)">←</button>
+            <div style="flex:1;min-width:0">
+              <div style="font:600 16px/1.2 'Public Sans',sans-serif">Mapa de ausculta</div>
+              <div style="font:400 12.5px/1 'Public Sans',sans-serif;color:var(--mut);margin-top:3px">{{ progressoTexto }}</div>
+            </div>
+            <div style="font:600 11px/1 'IBM Plex Mono',monospace;color:var(--mut)">1/3</div>
+          </div>
+
+          <div style="padding:12px 16px 0">
+            <div style="height:6px;border-radius:3px;background:var(--line);overflow:hidden">
+              <div style="height:100%;width:{{ progressoPct }};background:var(--ok);transition:width .35s ease"></div>
+            </div>
+          </div>
+
+          <sc-if value="{{ mapaAlternado }}" hint-placeholder-val="{{ true }}">
+            <div style="display:flex;gap:6px;padding:14px 16px 0">
+              <button onClick="{{ verAnterior }}" style="flex:1;height:42px;border:0;border-radius:10px;cursor:pointer;font:600 14px/1 'Public Sans',sans-serif;background:{{ abaAntBg }};color:{{ abaAntCor }}">Anterior</button>
+              <button onClick="{{ verPosterior }}" style="flex:1;height:42px;border:0;border-radius:10px;cursor:pointer;font:600 14px/1 'Public Sans',sans-serif;background:{{ abaPostBg }};color:{{ abaPostCor }}">Posterior</button>
+            </div>
+          </sc-if>
+
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:14px 16px;display:flex;flex-direction:column;gap:12px">
+            <sc-for list="{{ paineis }}" as="pane" hint-placeholder-count="1">
+              <div style="background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:14px 12px 12px;position:relative">
+                <div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.1em;text-transform:uppercase;color:var(--mut);text-align:center">{{ pane.titulo }}</div>
+                <div style="position:relative;margin:14px auto 0;width:{{ pane.larg }};height:{{ pane.alt }}">
+                  <sc-if value="{{ pane.ehAnterior }}" hint-placeholder-val="{{ true }}">
+                    <img src="assets/torso-frente.png" alt="Tórax anterior" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block">
+                  </sc-if>
+                  <sc-if value="{{ pane.ehPosterior }}" hint-placeholder-val="{{ false }}">
+                    <img src="assets/torso-dorso.png" alt="Tórax posterior" style="position:absolute;inset:0;width:100%;height:100%;object-fit:contain;display:block">
+                  </sc-if>
+                  <sc-if value="{{ pane.mostrarPontos }}" hint-placeholder-val="{{ true }}">
+                  <sc-for list="{{ pane.pontos }}" as="pt" hint-placeholder-count="4">
+                    <button onClick="{{ pt.tocar }}" style="position:absolute;left:{{ pt.x }};top:{{ pt.y }};transform:translate(-50%,-50%);width:{{ pt.d }};height:{{ pt.d }};border-radius:50%;border:2px solid {{ pt.borda }};background:{{ pt.fundo }};box-shadow:{{ pt.sombra }};cursor:pointer;display:flex;align-items:center;justify-content:center;font:700 {{ pt.fs }}/1 'Public Sans',sans-serif;color:{{ pt.texto }};padding:0">{{ pt.glifo }}</button>
+                  </sc-for>
+                  </sc-if>
+                  <sc-if value="{{ pane.temFoco }}" hint-placeholder-val="{{ false }}">
+                    <span style="position:absolute;left:{{ pane.focoX }};top:{{ pane.focoY }};transform:translate(-50%,-50%);width:36px;height:36px;border-radius:50%;background:rgba(27,111,227,.35);animation:pulso 1.6s ease-out infinite;pointer-events:none"></span>
+                  </sc-if>
+                </div>
+              </div>
+            </sc-for>
+
+            <sc-if value="{{ temDetalhe }}" hint-placeholder-val="{{ true }}">
+              <div style="display:flex;gap:12px;background:var(--surf);border:1px solid var(--line);border-radius:14px;padding:13px 14px">
+                <div style="width:36px;height:36px;flex:none;border-radius:10px;background:{{ detBg }};display:flex;align-items:center;justify-content:center;font:700 17px/1 'Public Sans',sans-serif;color:{{ detCor }}">{{ detLetra }}</div>
+                <div style="flex:1;min-width:0">
+                  <div style="display:flex;align-items:baseline;gap:8px"><div style="font:600 14.5px/1.2 'Public Sans',sans-serif">{{ detNome }}</div><div style="font:600 10px/1 'IBM Plex Mono',monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--mut)">{{ detGrupo }}</div></div>
+                  <div style="font:500 11.5px/1.35 'IBM Plex Mono',monospace;color:{{ detCor }};margin-top:5px">{{ detLocal }}</div>
+                  <div style="font:400 12.5px/1.4 'Public Sans',sans-serif;color:var(--mut);margin-top:5px;text-wrap:pretty">{{ detDesc }}</div>
+                </div>
+              </div>
+            </sc-if>
+
+            <div style="display:flex;gap:14px;justify-content:center;padding-top:2px">
+              <span style="display:flex;align-items:center;gap:6px;font:400 11.5px/1 'Public Sans',sans-serif;color:var(--mut)"><span style="width:11px;height:11px;border-radius:50%;border:2px solid #C2CBD4"></span>Pendente</span>
+              <span style="display:flex;align-items:center;gap:6px;font:400 11.5px/1 'Public Sans',sans-serif;color:var(--mut)"><span style="width:11px;height:11px;border-radius:50%;background:var(--acc)"></span>Em foco</span>
+              <span style="display:flex;align-items:center;gap:6px;font:400 11.5px/1 'Public Sans',sans-serif;color:var(--mut)"><span style="width:11px;height:11px;border-radius:50%;background:var(--ok)"></span>Coletado</span>
+            </div>
+          </div>
+
+          <sc-if value="{{ mostrarPopup }}" hint-placeholder-val="{{ false }}">
+            <div style="position:absolute;inset:0;z-index:20;background:rgba(15,23,32,.55);display:flex;align-items:center;justify-content:center;padding:24px">
+              <div style="width:100%;max-width:320px;background:var(--surf);border-radius:20px;padding:28px 22px 22px;display:flex;flex-direction:column;align-items:center;gap:16px;box-shadow:0 18px 48px rgba(15,23,32,.3);animation:subir .22s ease both">
+                <div style="width:72px;height:72px;border-radius:50%;background:#E6F4EC;display:flex;align-items:center;justify-content:center;color:var(--ok)">
+                  <svg width="38" height="38" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 25.5l9 9L37 15"></path></svg>
+                </div>
+                <div style="text-align:center">
+                  <div style="font:700 21px/1.2 'Public Sans',sans-serif;letter-spacing:-.01em">Exame concluído</div>
+                  <div style="font:400 13.5px/1.45 'Public Sans',sans-serif;color:var(--mut);margin-top:8px;text-wrap:pretty">Os 9 pontos do protocolo foram auscultados e validados nesta visita.</div>
+                </div>
+                <button onClick="{{ fecharPopup }}" style="width:100%;height:54px;border:0;border-radius:14px;background:var(--acc);color:#fff;font:600 16px/1 'Public Sans',sans-serif;cursor:pointer" style-hover="background:var(--acc-d)">Concluir visita</button>
+              </div>
+            </div>
+          </sc-if>
+
+          <div style="padding:12px 16px 18px;background:var(--surf);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:10px">
+            <div style="font:400 13px/1.35 'Public Sans',sans-serif;color:var(--mut);text-align:center">{{ dicaMapa }}</div>
+            <button onClick="{{ acaoMapa }}" disabled="{{ mapaBloqueado }}" style="width:100%;height:60px;border:0;border-radius:14px;background:{{ mapaBtnBg }};color:{{ mapaBtnCor }};font:600 17px/1 'Public Sans',sans-serif;cursor:pointer">{{ mapaBtnTexto }}</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ 04b INSTRUÇÕES AO PACIENTE ══ -->
+      <sc-if value="{{ ehInstrucoes }}" hint-placeholder-val="{{ false }}">
+        <div style="height:812px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)">
+          <div style="background:var(--surf);padding:14px 18px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px">
+            <button onClick="{{ voltarMapa }}" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surf);cursor:pointer;font:500 17px/1 'Public Sans',sans-serif;color:var(--ink)">←</button>
+            <div style="flex:1;min-width:0">
+              <div style="font:600 16px/1.2 'Public Sans',sans-serif">{{ instTitulo }}</div>
+              <div style="font:400 12.5px/1 'Public Sans',sans-serif;color:var(--mut);margin-top:3px">Orientações antes da captura</div>
+            </div>
+            <div style="font:600 11px/1 'IBM Plex Mono',monospace;color:var(--mut)">2/3</div>
+          </div>
+
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:24px 18px 18px;display:flex;flex-direction:column;gap:22px">
+            <div style="display:flex;flex-direction:column;align-items:center;gap:14px">
+              <div style="width:132px;height:132px;border-radius:50%;background:{{ instIconeBg }};display:flex;align-items:center;justify-content:center;color:{{ instCor }}">
+                <sc-if value="{{ instPulmonar }}" hint-placeholder-val="{{ true }}">
+                  <svg width="70" height="70" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M24 6v18"></path>
+                    <path d="M24 20c0-3.5-2-5.5-5-5.5"></path>
+                    <path d="M24 20c0-3.5 2-5.5 5-5.5"></path>
+                    <path d="M19 14.5c-4.5 0-7 3.5-7.8 8.4-.6 3.6-1.2 8-1.2 11.1 0 4 2.4 6.5 5.6 6.5 3 0 5.4-2.2 5.4-6V20"></path>
+                    <path d="M29 14.5c4.5 0 7 3.5 7.8 8.4.6 3.6 1.2 8 1.2 11.1 0 4-2.4 6.5-5.6 6.5-3 0-5.4-2.2-5.4-6V20"></path>
+                  </svg>
+                </sc-if>
+                <sc-if value="{{ instCardiaco }}" hint-placeholder-val="{{ false }}">
+                  <svg width="70" height="70" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M24 40S7 29 7 18.5A9.5 9.5 0 0 1 24 12.8 9.5 9.5 0 0 1 41 18.5C41 29 24 40 24 40z"></path>
+                    <path d="M13 24h6l3-5 4 9 3-4h6" stroke-width="2.2"></path>
+                  </svg>
+                </sc-if>
+                <sc-if value="{{ instIntestinal }}" hint-placeholder-val="{{ false }}">
+                  <svg width="70" height="70" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="24" cy="24" r="16"></circle>
+                    <path d="M13 21c2.6 3.4 5.9 3.4 8.5 0"></path>
+                    <path d="M26.5 21c2.6 3.4 5.9 3.4 8.5 0"></path>
+                    <path d="M16 31c4.6 3 11.4 3 16 0" stroke-width="2.2"></path>
+                  </svg>
+                </sc-if>
+              </div>
+              <div style="text-align:center">
+                <div style="font:700 23px/1.2 'Public Sans',sans-serif;letter-spacing:-.015em">{{ instTitulo }}</div>
+                <div style="font:600 11px/1 'IBM Plex Mono',monospace;letter-spacing:.12em;text-transform:uppercase;color:{{ instCorTexto }};margin-top:9px">{{ instGrupo }}</div>
+                <div style="font:400 13px/1.4 'Public Sans',sans-serif;color:var(--mut);margin-top:8px">{{ instLocal }}</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <sc-for list="{{ instrucoes }}" as="i" hint-placeholder-count="4">
+                <div style="display:flex;align-items:flex-start;gap:12px;background:var(--surf);border:1px solid var(--line);border-radius:13px;padding:14px 15px">
+                  <div style="width:24px;height:24px;flex:none;border-radius:50%;background:{{ instIconeBg }};display:flex;align-items:center;justify-content:center;color:{{ instCor }}">
+                    <svg width="13" height="13" viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 25.5l9 9L37 15"></path></svg>
+                  </div>
+                  <div style="flex:1;min-width:0;font:400 14.5px/1.4 'Public Sans',sans-serif;color:var(--ink);text-wrap:pretty">{{ i.texto }}</div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+
+          <div style="padding:14px 16px 18px;background:var(--surf);border-top:1px solid var(--line)">
+            <button onClick="{{ irGravacao }}" style="width:100%;height:60px;border:0;border-radius:14px;background:var(--acc);color:#fff;font:600 17px/1 'Public Sans',sans-serif;cursor:pointer" style-hover="background:var(--acc-d)">Tudo pronto, continuar</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ 05 GRAVAÇÃO ══ -->
+      <sc-if value="{{ ehGravacao }}" hint-placeholder-val="{{ false }}">
+        <div style="height:812px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg);color:var(--ink)">
+          <div style="padding:16px 18px;display:flex;align-items:center;gap:12px;background:var(--surf);border-bottom:1px solid var(--line)">
+            <button onClick="{{ cancelarGravacao }}" style="width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--surf);cursor:pointer;font:500 17px/1 'Public Sans',sans-serif;color:var(--ink)">←</button>
+            <div style="flex:1;min-width:0">
+              <div style="font:600 16px/1.2 'Public Sans',sans-serif">{{ pontoNome }}</div>
+              <div style="font:400 12.5px/1 'IBM Plex Mono',monospace;color:var(--mut);margin-top:3px">{{ pontoCodigo }} · 44.1 kHz · OPUS</div>
+            </div>
+            <div style="font:600 11px/1 'IBM Plex Mono',monospace;color:var(--mut)">3/3</div>
+          </div>
+
+          <div style="flex:1;display:flex;flex-direction:column;justify-content:center;gap:26px;padding:0 20px">
+            <sc-if value="{{ gravacaoCompacta }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:14px;padding:12px 14px;border-radius:14px;background:var(--surf);border:1px solid var(--line)">
+                <div style="width:44px;height:58px;border-radius:9px;background:var(--surf2);position:relative;flex:none">
+                  <span style="position:absolute;left:{{ miniX }};top:{{ miniY }};transform:translate(-50%,-50%);width:12px;height:12px;border-radius:50%;background:var(--acc)"></span>
+                </div>
+                <div style="font:400 13px/1.4 'Public Sans',sans-serif;color:var(--mut)">Mantenha o sensor firme sobre o ponto marcado até o fim da contagem.</div>
+              </div>
+            </sc-if>
+
+            <div style="text-align:center">
+              <div style="font:600 72px/1 'IBM Plex Mono',monospace;letter-spacing:-.03em;color:{{ timerCor }}">{{ timer }}</div>
+              <div style="font:500 14px/1 'Public Sans',sans-serif;color:var(--mut);margin-top:10px">{{ timerRotulo }}</div>
+            </div>
+
+            <div style="height:132px;border-radius:16px;background:var(--surf);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;gap:3px;padding:0 14px;animation:{{ ondaAnim }}">
+              <sc-for list="{{ barras }}" as="b" hint-placeholder-count="34">
+                <span style="flex:1;border-radius:2px;background:{{ b.cor }};height:{{ b.h }}"></span>
+              </sc-for>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:9px">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span style="font:500 12.5px/1 'Public Sans',sans-serif;color:var(--mut)">Qualidade do sinal (SNR)</span>
+                <span style="font:600 13px/1 'IBM Plex Mono',monospace;color:{{ snrCor }}">{{ snr }} dB</span>
+              </div>
+              <div style="height:8px;border-radius:4px;background:var(--line);overflow:hidden">
+                <div style="height:100%;width:{{ snrPct }};background:{{ snrCor }};transition:width .25s linear"></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:9px;padding:12px 13px;border-radius:12px;background:{{ avisoBg }}">
+                <span style="width:9px;height:9px;border-radius:50%;background:{{ snrCor }};flex:none"></span>
+                <span style="flex:1;font:500 13px/1.35 'Public Sans',sans-serif;color:{{ snrCor }}">{{ avisoTexto }}</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="padding:18px 20px 24px;background:var(--surf);border-top:1px solid var(--line);display:flex;flex-direction:column;align-items:center;gap:14px">
+            <button onClick="{{ botaoGravar }}" style="width:92px;height:92px;border-radius:50%;border:4px solid var(--line);background:{{ recBg }};cursor:pointer;display:flex;align-items:center;justify-content:center;position:relative">
+              <span style="width:{{ recIconD }};height:{{ recIconD }};border-radius:{{ recIconR }};background:#fff"></span>
+            </button>
+            <div style="font:400 12.5px/1 'Public Sans',sans-serif;color:var(--mut)">{{ recDica }}</div>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ 06 REVISÃO DO PONTO ══ -->
+      <sc-if value="{{ ehRevisao }}" hint-placeholder-val="{{ false }}">
+        <div style="height:812px;overflow:hidden;display:flex;flex-direction:column;background:var(--bg)">
+          <div style="background:var(--surf);padding:14px 18px;border-bottom:1px solid var(--line)">
+            <div style="font:600 16px/1.2 'Public Sans',sans-serif">Revisar captura</div>
+            <div style="font:400 12.5px/1 'Public Sans',sans-serif;color:var(--mut);margin-top:3px">{{ pontoNome }} · 10 s</div>
+          </div>
+          <div style="flex:1;min-height:0;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:14px">
+            <div style="background:var(--surf);border:1px solid var(--line);border-radius:16px;padding:16px">
+              <div style="height:104px;display:flex;align-items:center;gap:2.5px">
+                <sc-for list="{{ ondaRevisao }}" as="b" hint-placeholder-count="46">
+                  <span style="flex:1;border-radius:2px;background:#B9CBE4;height:{{ b.h }}"></span>
+                </sc-for>
+              </div>
+              <div style="display:flex;align-items:center;gap:12px;margin-top:14px">
+                <button style="width:48px;height:48px;border-radius:50%;border:0;background:var(--acc);cursor:pointer;display:flex;align-items:center;justify-content:center">
+                  <span style="width:0;height:0;border-left:14px solid #fff;border-top:9px solid transparent;border-bottom:9px solid transparent;margin-left:4px"></span>
+                </button>
+                <div style="flex:1">
+                  <div style="height:4px;border-radius:2px;background:var(--line)"><div style="height:100%;width:0%;background:var(--acc)"></div></div>
+                  <div style="display:flex;justify-content:space-between;margin-top:7px;font:400 11px/1 'IBM Plex Mono',monospace;color:var(--mut)"><span>0:00</span><span>0:10</span></div>
+                </div>
+              </div>
+            </div>
+            <div style="background:var(--surf);border:1px solid var(--line);border-radius:13px;padding:14px 15px;display:flex;align-items:center;justify-content:space-between;gap:12px">
+              <div style="font:500 13.5px/1 'Public Sans',sans-serif;color:var(--mut)">Qualidade da captura</div>
+              <div style="font:600 16px/1 'Public Sans',sans-serif;color:{{ revSnrCor }}">{{ revQualidade }}</div>
+            </div>
+            <div style="display:flex;align-items:flex-start;gap:10px;padding:13px 14px;border-radius:12px;background:{{ revAvisoBg }}">
+              <span style="width:9px;height:9px;border-radius:50%;background:{{ revSnrCor }};margin-top:5px;flex:none"></span>
+              <div style="font:400 13px/1.45 'Public Sans',sans-serif;color:{{ revSnrCor }}">{{ revAviso }}</div>
+            </div>
+          </div>
+          <div style="padding:14px 16px 18px;background:var(--surf);border-top:1px solid var(--line);display:flex;gap:10px">
+            <button onClick="{{ refazer }}" style="flex:1;height:60px;border:1.5px solid var(--line);border-radius:14px;background:var(--surf);color:var(--ink);font:600 16px/1 'Public Sans',sans-serif;cursor:pointer" style-hover="border-color:#C8D2DB">Refazer</button>
+            <button onClick="{{ aceitar }}" style="flex:1.4;height:60px;border:0;border-radius:14px;background:var(--ok);color:#fff;font:600 16px/1 'Public Sans',sans-serif;cursor:pointer">Aceitar ponto</button>
+          </div>
+        </div>
+      </sc-if>
+
+      <!-- ══ TAB BAR (modelo hub) ══ -->
+      <sc-if value="{{ mostrarTabs }}" hint-placeholder-val="{{ false }}">
+        <div style="position:sticky;bottom:0;display:flex;background:var(--surf);border-top:1px solid var(--line);padding:6px 4px 8px">
+          <sc-for list="{{ tabs }}" as="t" hint-placeholder-count="4">
+            <button onClick="{{ t.ir }}" style="flex:1;border:0;background:transparent;cursor:pointer;padding:6px 0;display:flex;flex-direction:column;align-items:center;gap:5px;font-family:'Public Sans',sans-serif">
+              <span style="width:22px;height:22px;border-radius:7px;background:{{ t.cor }};opacity:{{ t.op }}"></span>
+              <span style="font:600 10.5px/1 'Public Sans',sans-serif;color:{{ t.cor }};opacity:{{ t.op }}">{{ t.rotulo }}</span>
+            </button>
+          </sc-for>
+        </div>
+      </sc-if>
+
+    </x-import>
+
+    <sc-if value="{{ comChrome }}" hint-placeholder-val="{{ true }}">
+      <div style="max-width:412px;text-align:center;font:400 12.5px/1.5 'Public Sans',sans-serif;color:var(--mut)">{{ legenda }}</div>
+    </sc-if>
+  </main>
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mapaCorporal&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;alternado&quot;,&quot;ambos&quot;],&quot;default&quot;:&quot;alternado&quot;,&quot;tsType&quot;:&quot;'alternado'|'ambos'&quot;,&quot;section&quot;:&quot;Variações&quot;},&quot;layoutGravacao&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;onda&quot;,&quot;compacto&quot;],&quot;default&quot;:&quot;onda&quot;,&quot;tsType&quot;:&quot;'onda'|'compacto'&quot;,&quot;section&quot;:&quot;Variações&quot;},&quot;navegacao&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;options&quot;:[&quot;assistente&quot;,&quot;hub&quot;],&quot;default&quot;:&quot;assistente&quot;,&quot;tsType&quot;:&quot;'assistente'|'hub'&quot;,&quot;section&quot;:&quot;Variações&quot;}}">
+const PONTOS = [
+  { id: 'C1', letra: '1', grupo: 'Cardíaco', face: 'anterior', nome: 'Mitral', local: '5º EIC esquerdo, linha hemiclavicular (ápice)', desc: 'Foco mitral — B1, sopros de regurgitação mitral.', x: 63, y: 55 },
+  { id: 'C2', letra: '2', grupo: 'Cardíaco', face: 'anterior', nome: 'Tricúspide', local: '4º–5º EIC esquerdo, borda esternal', desc: 'Foco tricúspide — sopros de valva tricúspide.', x: 52, y: 45 },
+  { id: 'C3', letra: '3', grupo: 'Cardíaco', face: 'anterior', nome: 'Aórtico', local: '2º EIC direito, borda esternal', desc: 'Foco aórtico — B2, sopro de estenose aórtica.', x: 43, y: 28 },
+  { id: 'C4', letra: '4', grupo: 'Cardíaco', face: 'anterior', nome: 'Pulmonar', local: '2º EIC esquerdo, borda esternal', desc: 'Foco pulmonar — desdobramento de B2.', x: 57, y: 28 },
+  { id: 'I1', letra: '5', grupo: 'Intestinal', face: 'anterior', nome: 'QID / periumbilical', local: 'Quadrante inferior direito, periumbilical', desc: 'Ruídos hidroaéreos — frequência e timbre.', x: 43, y: 78 },
+  { id: 'L1', letra: '6', grupo: 'Pulmonar', face: 'posterior', nome: 'Base direita', local: 'Posterior, infraescapular D', desc: 'Base pulmonar direita — crepitações finas.', x: 60, y: 61 },
+  { id: 'L2', letra: '7', grupo: 'Pulmonar', face: 'posterior', nome: 'Base esquerda', local: 'Posterior, infraescapular E', desc: 'Base pulmonar esquerda — crepitações finas.', x: 40, y: 61 },
+  { id: 'L3', letra: '8', grupo: 'Pulmonar', face: 'posterior', nome: 'Ápice direito', local: 'Posterior, supraescapular D', desc: 'Ápice pulmonar direito — murmúrio vesicular.', x: 60, y: 30 },
+  { id: 'L4', letra: '9', grupo: 'Pulmonar', face: 'posterior', nome: 'Ápice esquerdo', local: 'Posterior, supraescapular E', desc: 'Ápice pulmonar esquerdo — murmúrio vesicular.', x: 40, y: 30 },
+];
+
+const PACIENTES = [
+  { nome: 'Raimunda Alves', detalhe: '74 anos · Sítio Boa Vista', hora: '08:20', sync: 'nuvem' },
+  { nome: 'José Nogueira', detalhe: '68 anos · Vila do Riacho', hora: '10:00', sync: 'enviando' },
+  { nome: 'Antônia Ferreira', detalhe: '81 anos · Assentamento Novo', hora: '13:30', sync: 'enviando' },
+  { nome: 'Sebastião Lima', detalhe: '59 anos · Sítio Boa Vista', hora: '15:45', sync: 'enviando' },
+];
+
+
+const INSTRUCOES = {
+  Pulmonar: [
+    'Respire mais fundo e mais devagar que o normal',
+    'Respire pela boca, não pelo nariz',
+    'Mantenha o tórax despido na região do ponto',
+    'Se sentir necessidade, tussa uma vez antes de começarmos',
+  ],
+  'Cardíaco': [
+    'Respire normalmente, sem forçar',
+    'Fique em ambiente silencioso',
+    'Quando indicado no app, prenda a respiração por alguns segundos',
+    'Evite falar durante a captura',
+  ],
+  Intestinal: [
+    'Relaxe a musculatura abdominal',
+    'Respire normalmente',
+    'Evite falar durante a captura',
+    'Fique parado, sem se mexer',
+  ],
+};
+
+const TELAS = [
+  { k: 'login', rotulo: 'Login do agente', req: 'BNR-03' },
+  { k: 'hoje', rotulo: 'Pacientes', req: 'UX-05' },
+  { k: 'cadastro', rotulo: 'Cadastrar paciente', req: 'UX-05' },
+  { k: 'mapa', rotulo: 'Mapa corporal', req: 'UI-MOB-001' },
+  { k: 'instrucoes', rotulo: 'Instruções ao paciente', req: 'UX-01' },
+  { k: 'gravacao', rotulo: 'Gravação ao vivo', req: 'UI-MOB-002' },
+  { k: 'revisao', rotulo: 'Revisar captura', req: 'UX-01' },
+];
+
+const LEGENDAS = {
+  login: 'Sessão offline de 12 h: o agente entra na casa do paciente sem depender de rede.',
+  hoje: 'Agenda do dia com o estado de envio por visita: sem conexão, enviando ou na nuvem (UI-MOB-003).',
+  cadastro: 'Cadastro local do paciente: nome, CPF, RG e nascimento. Validação de CPF antes de salvar.',
+  mapa: 'Aceitar o ponto volta ao mapa; concluído o nono, o aviso de exame completo aparece. 9 pontos definidos pelo protocolo — 4 cardíacos, 4 pulmonares, 1 intestinal. Cinza pendente, azul pulsando em foco, verde validado (UI-MOB-001).',
+  instrucoes: 'Orientações por tipo de ponto, antes da contagem: respiração primeiro, postura e ambiente depois, boa prática por último.',
+  gravacao: 'Contagem de 10 s por ponto. Onda fica vermelha e o aparelho vibra quando o ruído sobe (UI-MOB-002).',
+  revisao: 'O agente ouve antes de aceitar — evita retrabalho e ida de volta ao domicílio.',
+};
+
+function onda(n, amp, semente) {
+  const a = [];
+  for (let i = 0; i < n; i++) {
+    const t = i / n;
+    const resp = Math.abs(Math.sin(t * Math.PI * 2.6 + semente));
+    const gran = Math.abs(Math.sin(i * 12.9898 + semente * 78.233) * 43758.5453 % 1);
+    a.push(Math.max(0.06, Math.min(1, resp * 0.78 * amp + gran * 0.3 * amp)));
+  }
+  return a;
+}
+
+class Component extends DCLogic {
+  state = {
+    tela: this.props.telaInicial || 'login', face: this.props.faceInicial || 'anterior', ponto: null,
+    coletados: this.pre(),
+    gravando: false, restante: 10, quadro: 0, online: true, ruido: false,
+    novos: [], form: { nome: '', cpf: '', rg: '', nasc: '' }, tentouSalvar: false, popupVisto: false, excluindo: null, removidos: [],
+  };
+
+  mudarCampo = (chave, valor) => {
+    let v = valor;
+    if (chave === 'cpf') {
+      const d = v.replace(/\D/g, '').slice(0, 11);
+      v = d.replace(/^(\d{3})(\d)/, '$1.$2').replace(/^(\d{3})\.(\d{3})(\d)/, '$1.$2.$3').replace(/\.(\d{3})(\d{1,2})$/, '.$1-$2');
+    } else if (chave === 'nasc') {
+      const d = v.replace(/\D/g, '').slice(0, 8);
+      v = d.replace(/^(\d{2})(\d)/, '$1/$2').replace(/^(\d{2})\/(\d{2})(\d)/, '$1/$2/$3');
+    } else if (chave === 'rg') {
+      v = v.replace(/[^\dxX.\-]/g, '').slice(0, 14);
+    }
+    this.setState(s => ({ form: Object.assign({}, s.form, { [chave]: v }) }));
+  };
+
+  errosForm() {
+    const f = this.state.form;
+    const e = {};
+    if (f.nome.trim().length < 3) e.nome = 'Informe o nome completo.';
+    if (f.cpf.replace(/\D/g, '').length !== 11) e.cpf = 'CPF deve ter 11 dígitos.';
+    if (f.rg.replace(/[^\dxX]/g, '').length < 5) e.rg = 'RG inválido.';
+    const d = f.nasc.replace(/\D/g, '');
+    if (d.length !== 8) e.nasc = 'Use o formato DD/MM/AAAA.';
+    else {
+      const dia = +d.slice(0, 2), mes = +d.slice(2, 4), ano = +d.slice(4);
+      if (dia < 1 || dia > 31 || mes < 1 || mes > 12 || ano < 1900 || ano > 2026) e.nasc = 'Data fora do intervalo válido.';
+    }
+    return e;
+  }
+
+  salvar = () => {
+    const e = this.errosForm();
+    if (Object.keys(e).length) return this.setState({ tentouSalvar: true });
+    const f = this.state.form;
+    const d = f.nasc.replace(/\D/g, '');
+    const idade = 2026 - +d.slice(4);
+    this.setState(s => ({
+      novos: s.novos.concat([{ nome: f.nome.trim(), detalhe: idade + ' anos · cadastrado agora', hora: '—', sync: 'enviando' }]),
+      form: { nome: '', cpf: '', rg: '', nasc: '' }, tentouSalvar: false, tela: 'hoje',
+    }));
+  };
+
+  pre() {
+    const n = Number(this.props.pontosPreenchidos || 0);
+    const o = {};
+    PONTOS.slice(0, n).forEach(p => { o[p.id] = true; });
+    return o;
+  }
+
+  componentWillUnmount() { clearInterval(this._t); }
+
+  ir = (tela) => { clearInterval(this._t); this.setState({ tela, gravando: false }); };
+
+  iniciar = () => {
+    clearInterval(this._t);
+    this.setState({ gravando: true, restante: 10, quadro: 0 });
+    this._t = setInterval(() => {
+      this.setState(s => {
+        const r = Math.max(0, +(s.restante - 0.1).toFixed(1));
+        if (r === 0) { clearInterval(this._t); return { restante: 0, gravando: false, tela: 'revisao' }; }
+        return { restante: r, quadro: s.quadro + 1 };
+      });
+    }, 100);
+  };
+
+  aceitar = () => {
+    const c = Object.assign({}, this.state.coletados);
+    c[this.state.ponto] = true;
+    this.setState({ coletados: c, ponto: null, tela: 'mapa' });
+  };
+
+  snrAtual() { return this.state.ruido ? 14 : 27; }
+
+  renderVals() {
+    const s = this.state;
+    const snr = this.snrAtual();
+    const snrOk = snr >= 20;
+    const snrCor = snrOk ? '#0F6B45' : '#C33B2E';
+    const feitos = Object.keys(s.coletados).length;
+    const pontoObj = PONTOS.find(p => p.id === s.ponto) || null;
+    const pendentes = PONTOS.filter(p => !s.coletados[p.id]);
+    const proximo = pendentes.find(p => p.face === s.face) || pendentes[0] || null;
+
+    const mapaAlternado = (this.props.mapaCorporal ?? 'alternado') === 'alternado';
+    const gravacaoCompacta = (this.props.layoutGravacao ?? 'onda') === 'compacto';
+    const navHub = (this.props.navegacao ?? 'assistente') === 'hub';
+
+    const facesVisiveis = mapaAlternado ? [s.face] : ['anterior', 'posterior'];
+    const paineis = facesVisiveis.map(face => {
+      const pts = PONTOS.filter(p => p.face === face);
+      const foco = pts.find(p => p.id === s.ponto);
+      return {
+        titulo: face === 'anterior' ? 'Tórax anterior' : 'Tórax posterior',
+        ehAnterior: face === 'anterior',
+        mostrarPontos: true,
+        ehPosterior: face === 'posterior',
+        larg: mapaAlternado ? '344px' : '168px',
+        alt: mapaAlternado ? '267px' : '131px',
+        temFoco: !!foco,
+        focoX: foco ? foco.x + '%' : '0%',
+        focoY: foco ? foco.y + '%' : '0%',
+        pontos: pts.map(p => {
+          const feito = !!s.coletados[p.id];
+          const ativo = s.ponto === p.id;
+          return {
+            x: p.x + '%', y: p.y + '%',
+            d: face === 'anterior' ? (mapaAlternado ? '32px' : '26px') : (mapaAlternado ? '42px' : '32px'),
+            fs: face === 'anterior' ? (mapaAlternado ? '14px' : '11px') : (mapaAlternado ? '16px' : '13px'),
+            borda: feito ? '#1B8C5A' : ativo ? '#1B6FE3' : 'rgba(15,23,32,.22)',
+            fundo: feito ? '#1B8C5A' : ativo ? '#1B6FE3' : 'rgba(255,255,255,.92)',
+            texto: feito || ativo ? '#FFFFFF' : '#4A5B69',
+            sombra: ativo ? '0 4px 14px rgba(27,111,227,.45)' : '0 1px 4px rgba(15,23,32,.16)',
+            glifo: feito ? '✓' : p.letra,
+            tocar: () => this.setState({ ponto: p.id, face: p.face }),
+          };
+        }),
+      };
+    });
+
+    const lista = PACIENTES.concat(s.novos).map((p, i) => (s.removidos.indexOf(i) >= 0 ? null : p));
+
+    const mapaCompleto = feitos === PONTOS.length;
+    const alvo = pontoObj || proximo;
+
+    return {
+      devProps: { width: 412, height: 892 },
+      comChrome: !this.props.soAparelho,
+      ehLogin: s.tela === 'login', ehHoje: s.tela === 'hoje',
+      ehMapa: s.tela === 'mapa', ehGravacao: s.tela === 'gravacao', ehRevisao: s.tela === 'revisao',
+      ehCadastro: s.tela === 'cadastro', ehInstrucoes: s.tela === 'instrucoes',
+      legenda: LEGENDAS[s.tela],
+
+      mapaFluxo: TELAS.map((t, i) => ({
+        n: String(i + 1).padStart(2, '0'), rotulo: t.rotulo, req: t.req,
+        bg: s.tela === t.k ? '#FFFFFF' : 'transparent',
+        numBg: s.tela === t.k ? '#1B6FE3' : '#E1E6EB',
+        numCor: s.tela === t.k ? '#FFFFFF' : '#57646F',
+        cor: s.tela === t.k ? '#0F1720' : '#57646F',
+        ir: () => this.ir(t.k),
+      })),
+
+      entrar: () => this.ir('hoje'),
+      voltarHoje: () => this.ir('hoje'),
+      irMapa: () => this.ir('mapa'),
+      reiniciar: () => { clearInterval(this._t); this.setState({ tela: 'login', coletados: {}, ponto: null, gravando: false, restante: 10, popupVisto: false, excluindo: null, removidos: [] }); },
+      alternarRede: () => this.setState(p => ({ online: !p.online })),
+      alternarRuido: () => this.setState(p => ({ ruido: !p.ruido })),
+      redeRotulo: s.online ? 'Online' : 'Offline',
+      redeCor: s.online ? '#0F6B45' : '#8A5A0B',
+      redeChipBg: s.online ? '#E6F4EC' : '#FAF3E3',
+      ruidoRotulo: s.ruido ? 'Alto' : 'Baixo',
+      ruidoCor: s.ruido ? '#C33B2E' : '#0F6B45',
+
+      irCadastro: () => this.ir('cadastro'),
+      campos: [
+        { k: 'nome', rotulo: 'Nome completo', dica: 'Maria Aparecida da Silva', modo: 'text', fonte: "'Public Sans',sans-serif" },
+        { k: 'cpf', rotulo: 'CPF', dica: '000.000.000-00', modo: 'numeric', fonte: "'IBM Plex Mono',monospace" },
+        { k: 'rg', rotulo: 'RG', dica: '00.000.000-0', modo: 'text', fonte: "'IBM Plex Mono',monospace" },
+        { k: 'nasc', rotulo: 'Data de nascimento', dica: 'DD/MM/AAAA', modo: 'numeric', fonte: "'IBM Plex Mono',monospace" },
+      ].map(c => {
+        const erro = s.tentouSalvar ? this.errosForm()[c.k] : null;
+        return {
+          rotulo: c.rotulo, dica: c.dica, modo: c.modo, fonte: c.fonte,
+          valor: s.form[c.k], temErro: !!erro, erro: erro || '',
+          borda: erro ? '#C33B2E' : '#E1E6EB',
+          mudar: (ev) => this.mudarCampo(c.k, ev.target.value),
+        };
+      }),
+      salvarPaciente: this.salvar,
+      salvarBg: '#1B6FE3',
+      salvarTexto: 'Salvar paciente',
+
+      mostrarExcluir: s.excluindo !== null,
+      excluirTexto: s.excluindo !== null && lista[s.excluindo]
+        ? 'Remover ' + lista[s.excluindo].nome + ' da agenda? As capturas já enviadas permanecem no prontuário.'
+        : '',
+      confirmarExcluir: () => this.setState(st => ({ removidos: st.removidos.concat([st.excluindo]), excluindo: null })),
+      cancelarExcluir: () => this.setState({ excluindo: null }),
+
+      pacientes: lista.map((p, i) => (p === null ? null : {
+        nome: p.nome, detalhe: p.detalhe, hora: p.hora,
+        risco: '#1B6FE3',
+        ehNuvem: p.sync === 'nuvem',
+        ehEnviando: p.sync !== 'nuvem' && s.online,
+        ehOffline: p.sync !== 'nuvem' && !s.online,
+        syncCor: p.sync === 'nuvem' ? '#0F6B45' : s.online ? '#1B6FE3' : '#8A5A0B',
+        syncBg: p.sync === 'nuvem' ? '#E6F4EC' : s.online ? '#EDF3FD' : '#FAF3E3',
+        abrir: () => this.setState({ tela: 'mapa', pacienteIdx: i }),
+        pedirExcluir: () => this.setState({ excluindo: i }),
+      })).filter(Boolean),
+      totalVisitas: lista.filter(Boolean).length,
+
+      pacienteNome: PACIENTES[0].nome,
+      pacienteDetalhe: PACIENTES[0].detalhe,
+
+      mapaAlternado, paineis,
+      verAnterior: () => this.setState({ face: 'anterior' }),
+      verPosterior: () => this.setState({ face: 'posterior' }),
+      abaAntBg: s.face === 'anterior' ? '#0F1720' : '#FFFFFF',
+      abaAntCor: s.face === 'anterior' ? '#FFFFFF' : '#57646F',
+      abaPostBg: s.face === 'posterior' ? '#0F1720' : '#FFFFFF',
+      abaPostCor: s.face === 'posterior' ? '#FFFFFF' : '#57646F',
+      progressoTexto: feitos + ' de ' + PONTOS.length + ' pontos coletados',
+      progressoPct: Math.round((feitos / PONTOS.length) * 100) + '%',
+      dicaMapa: mapaCompleto ? 'Todos os pontos validados.' : pontoObj ? 'Ponto em foco: ' + pontoObj.nome : 'Toque em um ponto para iniciar a gravação.',
+      temDetalhe: !!alvo,
+      detLetra: alvo ? alvo.letra : '',
+      detNome: alvo ? alvo.nome : '',
+      detLocal: alvo ? alvo.local : '',
+      detGrupo: alvo ? alvo.grupo : '',
+      detDesc: alvo ? alvo.desc : '',
+      detCor: alvo && s.coletados[alvo.id] ? '#1B8C5A' : '#1B6FE3',
+      detBg: alvo && s.coletados[alvo.id] ? '#E6F4EC' : '#EDF3FD',
+      mapaBtnTexto: mapaCompleto ? 'Exame concluído' : pontoObj ? 'Gravar ' + pontoObj.nome : 'Gravar próximo ponto',
+      mostrarPopup: mapaCompleto && !s.popupVisto,
+      fecharPopup: () => this.setState({ popupVisto: true, tela: 'hoje', coletados: {}, ponto: null }),
+      mapaBtnBg: '#1B6FE3', mapaBtnCor: '#FFFFFF', mapaBloqueado: false,
+      acaoMapa: () => {
+        if (mapaCompleto) return this.setState({ popupVisto: false });
+        const p = alvo;
+        if (p) this.setState({ ponto: p.id, face: p.face, tela: 'instrucoes', restante: 10, gravando: false });
+      },
+
+      voltarMapa: () => this.ir('mapa'),
+      irGravacao: () => this.setState({ tela: 'gravacao', restante: 10, gravando: false }),
+      instTitulo: alvo ? (alvo.grupo === 'Cardíaco' ? 'Foco ' + alvo.nome : alvo.nome) : 'Ponto',
+      instGrupo: alvo ? alvo.grupo : '',
+      instLocal: alvo ? alvo.local : '',
+      instPulmonar: !!alvo && alvo.grupo === 'Pulmonar',
+      instCardiaco: !!alvo && alvo.grupo === 'Cardíaco',
+      instIntestinal: !!alvo && alvo.grupo === 'Intestinal',
+      instCor: alvo ? ({ Pulmonar: '#1B6FE3', 'Cardíaco': '#C33B2E', Intestinal: '#0F6B45' })[alvo.grupo] : '#1B6FE3',
+      instCorTexto: alvo ? ({ Pulmonar: '#0E4FAE', 'Cardíaco': '#C33B2E', Intestinal: '#0F6B45' })[alvo.grupo] : '#0E4FAE',
+      instIconeBg: alvo ? ({ Pulmonar: '#EDF3FD', 'Cardíaco': '#FBECEA', Intestinal: '#E6F4EC' })[alvo.grupo] : '#EDF3FD',
+      instrucoes: (alvo ? INSTRUCOES[alvo.grupo] || [] : []).map(t => ({ texto: t })),
+
+      gravacaoCompacta,
+      miniX: (alvo ? alvo.x : 50) + '%', miniY: (alvo ? alvo.y : 50) + '%',
+      pontoNome: alvo ? (alvo.grupo === 'Cardíaco' ? 'Foco ' + alvo.nome : alvo.nome) : 'Ponto',
+      pontoCodigo: alvo ? 'Ponto ' + alvo.letra + ' · ' + alvo.grupo : '—',
+      timer: s.gravando ? s.restante.toFixed(1).replace('.', ',') + 's' : '10,0s',
+      timerCor: s.gravando ? (snrOk ? '#0F1720' : '#C33B2E') : '#6B7885',
+      timerRotulo: s.gravando ? 'restantes — mantenha a posição' : 'duração da captura',
+      barras: onda(34, s.gravando ? 1 : 0.16, s.quadro * 0.4).map(v => ({
+        h: Math.round(8 + v * 108) + 'px',
+        cor: s.gravando ? (snrOk ? '#1B8C5A' : '#C33B2E') : '#CBD5DE',
+      })),
+      ondaAnim: s.gravando && !snrOk ? 'tremer .18s linear infinite' : 'none',
+      snr, snrPct: Math.min(100, Math.round((snr / 40) * 100)) + '%', snrCor,
+      avisoBg: snrOk ? '#E6F4EC' : '#FBECEA',
+      avisoTexto: snrOk ? 'Sinal bom — pode gravar' : 'Ruído excessivo · reposicionar sensor',
+      botaoGravar: s.gravando ? () => { clearInterval(this._t); this.setState({ gravando: false }); } : this.iniciar,
+      recBg: s.gravando ? '#C33B2E' : '#1B6FE3',
+      recIconD: s.gravando ? '26px' : '38px',
+      recIconR: s.gravando ? '6px' : '50%',
+      recDica: s.gravando ? 'Toque para interromper' : 'Toque para gravar 10 s',
+      cancelarGravacao: () => this.ir('mapa'),
+
+      ondaRevisao: onda(46, 1, 3.2).map(v => ({ h: Math.round(6 + v * 92) + 'px' })),
+      revQualidade: snrOk ? 'Boa' : 'Ruim', revSnrCor: snrOk ? '#0F6B45' : '#C33B2E',
+      revAvisoBg: snrOk ? '#E6F4EC' : '#FBECEA',
+      revAviso: snrOk ? 'Som limpo, pode aceitar o ponto.' : 'Muito ruído na gravação. Refaça com o sensor mais firme sobre o ponto.',
+      refazer: () => this.setState({ tela: 'gravacao', restante: 10, gravando: false }),
+      aceitar: this.aceitar,
+
+      mostrarTabs: navHub && s.tela !== 'login' && s.tela !== 'gravacao',
+      tabs: [
+        { rotulo: 'Hoje', k: 'hoje' }, { rotulo: 'Coleta', k: 'mapa' },
+      ].map(t => ({
+        rotulo: t.rotulo,
+        cor: s.tela === t.k ? '#1B6FE3' : '#57646F',
+        op: s.tela === t.k ? 1 : 0.55,
+        ir: () => this.ir(t.k),
+      })),
+    };
+  }
+}
+
+</script>
+</body>
+</html>

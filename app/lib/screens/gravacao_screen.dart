@@ -23,7 +23,11 @@ class GravacaoScreen extends StatelessWidget {
     final timerTexto = gravando ? '${state.restante.toStringAsFixed(1).replaceAll('.', ',')}s' : '10,0s';
     final timerRotulo = gravando ? 'restantes — mantenha a posição' : 'duração da captura';
 
-    final barras = onda(34, gravando ? 1 : 0.16, state.quadro * 0.4);
+    // Formato das barras é decorativo (não é a forma de onda real amostra a
+    // amostra), mas a amplitude reage ao nível de entrada real do microfone.
+    final nivelNormalizado = (snr / 40).clamp(0.0, 1.0);
+    final amp = gravando ? (0.25 + nivelNormalizado * 0.75) : 0.16;
+    final barras = onda(34, amp, state.quadro * 0.4);
     final shakeX = gravando && !snrOk ? (state.quadro.isEven ? -2.0 : 2.0) : 0.0;
 
     final avisoBg = snrOk ? AppColors.okBg : AppColors.badBg;
@@ -47,6 +51,15 @@ class GravacaoScreen extends StatelessWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
+                    if (state.erroGravacao != null) ...[
+                      DotBanner(
+                        bg: AppColors.badBg,
+                        dotColor: AppColors.bad,
+                        textColor: AppColors.bad,
+                        text: state.erroGravacao!,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
                     Text(timerTexto, style: AppText.mono(72, weight: FontWeight.w600, letterSpacing: -0.03 * 72, color: timerCor)),
                     const SizedBox(height: 10),
                     Text(timerRotulo, style: AppText.ps(14, weight: FontWeight.w500, color: AppColors.mut)),

@@ -1,19 +1,46 @@
 import 'package:flutter/material.dart';
+import 'package:just_audio/just_audio.dart' show PlayerState;
 import 'package:provider/provider.dart';
 
+import '../services/waveform_decoder.dart';
 import '../state/app_state.dart';
 import '../theme/tokens.dart';
-import '../utils/onda.dart';
 import '../widgets/app_button.dart';
 import '../widgets/info_banner.dart';
 import '../widgets/screen_header.dart';
 
-class RevisaoScreen extends StatelessWidget {
+class RevisaoScreen extends StatefulWidget {
   const RevisaoScreen({super.key});
+
+  @override
+  State<RevisaoScreen> createState() => _RevisaoScreenState();
+}
+
+class _RevisaoScreenState extends State<RevisaoScreen> {
+  static const _decoder = WaveformDecoder();
+
+  String? _caminhoCarregado;
+  Future<WaveformData>? _futuroOnda;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _carregarSeNecessario();
+  }
+
+  void _carregarSeNecessario() {
+    final caminho = context.read<AppState>().caminhoGravado;
+    if (caminho == null || caminho == _caminhoCarregado) return;
+    _caminhoCarregado = caminho;
+    _futuroOnda = _decoder.decodificarArquivo(caminho);
+    context.read<AppState>().playerService.carregar(caminho);
+  }
 
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    _carregarSeNecessario();
+
     final alvo = state.alvo;
     final snrOk = state.snrOk;
     final cor = snrOk ? AppColors.okTxt : AppColors.bad;
@@ -22,7 +49,6 @@ class RevisaoScreen extends StatelessWidget {
     final aviso = snrOk
         ? 'Som limpo, pode aceitar o ponto.'
         : 'Muito ruído na gravação. Refaça com o sensor mais firme sobre o ponto.';
-    final barras = onda(46, 1, 3.2);
 
     return Scaffold(
       backgroundColor: AppColors.bg,
@@ -49,59 +75,49 @@ class RevisaoScreen extends StatelessWidget {
                       children: [
                         SizedBox(
                           height: 104,
-                          child: Row(
-                            children: [
-                              for (var i = 0; i < barras.length; i++) ...[
-                                Expanded(
-                                  child: Container(
-                                    height: 6 + barras[i] * 92,
-                                    decoration: BoxDecoration(
-                                      color: AppColors.waveStatic,
-                                      borderRadius: BorderRadius.circular(2),
-                                    ),
-                                  ),
+                          child: _futuroOnda == null
+                              ? const Center(
+                                  child: Text('Sem gravação', style: TextStyle(color: AppColors.mut)),
+                                )
+                              : FutureBuilder<WaveformData>(
+                                  future: _futuroOnda,
+                                  builder: (context, snapshot) {
+                                    if (snapshot.connectionState != ConnectionState.done) {
+                                      return const Center(
+                                        child: SizedBox(
+                                          width: 22,
+                                          height: 22,
+                                          child: CircularProgressIndicator(strokeWidth: 2),
+                                        ),
+                                      );
+                                    }
+                                    if (snapshot.hasError || snapshot.data!.amostras.isEmpty) {
+                                      return const Center(
+                                        child: Text('Não foi possível ler o áudio', style: TextStyle(color: AppColors.mut)),
+                                      );
+                                    }
+                                    final amostras = snapshot.data!.amostras;
+                                    return Row(
+                                      children: [
+                                        for (var i = 0; i < amostras.length; i++) ...[
+                                          Expanded(
+                                            child: Container(
+                                              height: 6 + amostras[i] * 92,
+                                              decoration: BoxDecoration(
+                                                color: AppColors.waveStatic,
+                                                borderRadius: BorderRadius.circular(2),
+                                              ),
+                                            ),
+                                          ),
+                                          if (i != amostras.length - 1) const SizedBox(width: 2.5),
+                                        ],
+                                      ],
+                                    );
+                                  },
                                 ),
-                                if (i != barras.length - 1) const SizedBox(width: 2.5),
-                              ],
-                            ],
-                          ),
                         ),
                         const SizedBox(height: 14),
-                        Row(
-                          children: [
-                            Container(
-                              width: 48,
-                              height: 48,
-                              decoration: const BoxDecoration(color: AppColors.acc, shape: BoxShape.circle),
-                              child: const Icon(Icons.play_arrow_rounded, color: Colors.white, size: 26),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.stretch,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(2),
-                                    child: const LinearProgressIndicator(
-                                      value: 0,
-                                      minHeight: 4,
-                                      backgroundColor: AppColors.line,
-                                      valueColor: AlwaysStoppedAnimation(AppColors.acc),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 7),
-                                  Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                    children: [
-                                      Text('0:00', style: AppText.mono(11, color: AppColors.mut)),
-                                      Text('0:10', style: AppText.mono(11, color: AppColors.mut)),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
+                        _Player(state: state),
                       ],
                     ),
                   ),
@@ -146,6 +162,87 @@ class RevisaoScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+}
+
+class _Player extends StatelessWidget {
+  final AppState state;
+  const _Player({required this.state});
+
+  String _formatar(Duration d) {
+    final s = d.inSeconds.clamp(0, 99);
+    return '0:${s.toString().padLeft(2, '0')}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final player = state.playerService;
+
+    return StreamBuilder<PlayerState>(
+      stream: player.estadoStream,
+      builder: (context, estadoSnap) {
+        final tocando = estadoSnap.data?.playing ?? false;
+        // Reavaliado a cada mudança de estado do player, então capta a
+        // duração assim que o arquivo termina de carregar.
+        final duracao = player.duracao ?? const Duration(seconds: 10);
+        return Row(
+          children: [
+            GestureDetector(
+              onTap: () => tocando ? player.pausar() : player.tocar(),
+              child: Container(
+                width: 48,
+                height: 48,
+                decoration: const BoxDecoration(color: AppColors.acc, shape: BoxShape.circle),
+                child: Icon(
+                  tocando ? Icons.pause_rounded : Icons.play_arrow_rounded,
+                  color: Colors.white,
+                  size: 26,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  StreamBuilder<Duration>(
+                    stream: player.posicaoStream,
+                    builder: (context, posSnap) {
+                      final pos = posSnap.data ?? Duration.zero;
+                      final pct = duracao.inMilliseconds == 0
+                          ? 0.0
+                          : (pos.inMilliseconds / duracao.inMilliseconds).clamp(0.0, 1.0);
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(2),
+                            child: LinearProgressIndicator(
+                              value: pct,
+                              minHeight: 4,
+                              backgroundColor: AppColors.line,
+                              valueColor: const AlwaysStoppedAnimation(AppColors.acc),
+                            ),
+                          ),
+                          const SizedBox(height: 7),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(_formatar(pos), style: AppText.mono(11, color: AppColors.mut)),
+                              Text(_formatar(duracao), style: AppText.mono(11, color: AppColors.mut)),
+                            ],
+                          ),
+                        ],
+                      );
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 }

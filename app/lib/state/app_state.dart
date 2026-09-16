@@ -1,12 +1,15 @@
 import 'dart:async';
-import 'dart:math';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:record/record.dart' show Amplitude;
 
 import '../data/pacientes_mock.dart';
 import '../data/pontos_ausculta.dart';
 import '../models/paciente.dart';
 import '../models/ponto.dart';
+import '../services/audio_player_service.dart';
+import '../services/audio_recorder_service.dart';
 import 'tela.dart';
 
 /// Single source of truth for the whole clickable flow, mirroring the
@@ -39,22 +42,33 @@ class AppState extends ChangeNotifier {
   // Prepare o microfone / Contexto da coleta.
   String? pacienteSel;
   bool micTestado = false;
+  bool micTestando = false;
+  String? erroMicrofone;
   String ctxSintomas = '';
   bool ctxOxigenio = false;
   String ctxRuido = '';
 
-  // Gravação.
+  // Gravação — captura real via microfone (o estetoscópio digital sai como
+  // entrada de áudio USB-C padrão, sem SDK proprietário).
+  final AudioRecorderService _recorderService = AudioRecorderService();
+  final AudioPlayerService playerService = AudioPlayerService();
+  StreamSubscription<Amplitude>? _ampSub;
   bool gravando = false;
   double restante = 10;
   int quadro = 0;
   double _snrAtual = 27;
+  String? erroGravacao;
   Timer? _timer;
 
-  final _rng = Random();
+  /// Caminho do arquivo WAV da captura em revisão (nulo fora da tela 07).
+  String? caminhoGravado;
 
   @override
   void dispose() {
     _timer?.cancel();
+    _ampSub?.cancel();
+    _recorderService.dispose();
+    playerService.dispose();
     super.dispose();
   }
 
@@ -192,8 +206,32 @@ class AppState extends ChangeNotifier {
   }
 
   // ── Prepare o microfone ─────────────────────────────────────────────
-  void testarMicrofone() {
-    micTestado = true;
+  /// Pede permissão de microfone e abre/fecha uma captura de ~400ms para
+  /// confirmar que o pipeline de áudio (inclusive o sensor USB-C) responde
+  /// de ponta a ponta — não é uma checagem acústica de qualidade do sinal,
+  /// só de que o dispositivo de entrada está acessível.
+  Future<void> testarMicrofone() async {
+    micTestando = true;
+    erroMicrofone = null;
+    notifyListeners();
+
+    try {
+      final permitido = await _recorderService.temPermissao();
+      if (!permitido) {
+        erroMicrofone = 'Permissão de microfone negada.';
+        micTestado = false;
+      } else {
+        await _recorderService.iniciarGravacao(prefixoArquivo: 'teste');
+        await Future.delayed(const Duration(milliseconds: 400));
+        await _recorderService.descartarGravacao();
+        micTestado = true;
+      }
+    } catch (_) {
+      erroMicrofone = 'Não foi possível acessar o microfone.';
+      micTestado = false;
+    }
+
+    micTestando = false;
     notifyListeners();
   }
 
@@ -281,53 +319,106 @@ class AppState extends ChangeNotifier {
   void irGravacao() {
     restante = 10;
     gravando = false;
-    _snrAtual = _rollSnr();
+    erroGravacao = null;
     ir(Tela.gravacao);
   }
 
   // ── Gravação ────────────────────────────────────────────────────────
-  double _rollSnr() {
-    // No real audio pipeline is wired up yet, so a session's signal quality
-    // is simulated: mostly clean, occasionally noisy, so both UI states are
-    // reachable without a dev-only toggle.
-    final noisy = _rng.nextDouble() < 0.25;
-    return noisy ? 10 + _rng.nextDouble() * 8 : 24 + _rng.nextDouble() * 12;
+  /// Aproxima um "nível de sinal" 0–40 a partir da amplitude em dBFS do
+  /// microfone. Isto NÃO é SNR acústico real (precisaria de estimativa de
+  /// piso de ruído / análise espectral) — é só o nível do que está entrando
+  /// no microfone, reaproveitando a escala e o limiar (20) já desenhados.
+  double _nivelDeAmplitude(double dbfs) {
+    const chao = -50.0;
+    const teto = 0.0;
+    final normalizado = (dbfs.clamp(chao, teto) - chao) / (teto - chao);
+    return normalizado * 40;
   }
 
   double get snr => _snrAtual;
   bool get snrOk => snr >= 20;
 
-  void iniciarGravacao() {
+  Future<void> iniciarGravacao() async {
     _timer?.cancel();
+    await _ampSub?.cancel();
+    erroGravacao = null;
+
+    try {
+      await _recorderService.iniciarGravacao(prefixoArquivo: pontoId);
+    } on AudioRecorderPermissionException {
+      erroGravacao = 'Permissão de microfone negada.';
+      notifyListeners();
+      return;
+    } catch (_) {
+      erroGravacao = 'Não foi possível iniciar a gravação.';
+      notifyListeners();
+      return;
+    }
+
     gravando = true;
     restante = 10;
     quadro = 0;
     notifyListeners();
-    _timer = Timer.periodic(const Duration(milliseconds: 100), (t) {
+
+    _ampSub = _recorderService.streamAmplitude().listen((amp) {
+      _snrAtual = _nivelDeAmplitude(amp.current);
+      notifyListeners();
+    });
+
+    _timer = Timer.periodic(const Duration(milliseconds: 100), (t) async {
       final r = double.parse((restante - 0.1).clamp(0, 10).toStringAsFixed(1));
+      quadro++;
       if (r <= 0) {
         t.cancel();
         restante = 0;
-        gravando = false;
-        tela = Tela.revisao;
+        await _finalizarGravacao();
       } else {
         restante = r;
-        quadro++;
+        notifyListeners();
       }
-      notifyListeners();
     });
   }
 
-  void pararGravacao() {
-    _timer?.cancel();
+  Future<void> _finalizarGravacao() async {
+    await _ampSub?.cancel();
+    _ampSub = null;
     gravando = false;
+    caminhoGravado = await _recorderService.pararGravacao();
+    tela = Tela.revisao;
     notifyListeners();
   }
 
-  void cancelarGravacao() => ir(Tela.mapa);
+  /// Toque manual no botão enquanto grava: interrompe e descarta a captura
+  /// parcial (o usuário toca de novo para começar uma gravação nova do
+  /// zero) — não navega para a revisão, igual ao comportamento original.
+  Future<void> pararGravacao() async {
+    _timer?.cancel();
+    await _ampSub?.cancel();
+    _ampSub = null;
+    gravando = false;
+    await _recorderService.descartarGravacao();
+    notifyListeners();
+  }
+
+  Future<void> cancelarGravacao() async {
+    if (gravando) {
+      _timer?.cancel();
+      await _ampSub?.cancel();
+      _ampSub = null;
+      gravando = false;
+      await _recorderService.descartarGravacao();
+    }
+    ir(Tela.mapa);
+  }
 
   // ── Revisão ─────────────────────────────────────────────────────────
-  void refazer() {
+  Future<void> refazer() async {
+    final caminho = caminhoGravado;
+    caminhoGravado = null;
+    if (caminho != null) {
+      final arquivo = File(caminho);
+      if (await arquivo.exists()) await arquivo.delete();
+    }
     restante = 10;
     gravando = false;
     ir(Tela.gravacao);
@@ -336,6 +427,7 @@ class AppState extends ChangeNotifier {
   void aceitar() {
     if (pontoId != null) coletados.add(pontoId!);
     pontoId = null;
+    caminhoGravado = null;
     ir(Tela.mapa);
   }
 }

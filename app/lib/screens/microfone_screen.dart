@@ -15,6 +15,7 @@ class MicrofoneScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     final testado = state.micTestado;
+    final testando = state.micTestando;
     final micBg = testado ? AppColors.okBg : AppColors.chip;
     final micCor = testado ? AppColors.okTxt : AppColors.acc;
     final micTitCor = testado ? AppColors.okTxt : AppColors.ink;
@@ -70,6 +71,16 @@ class MicrofoneScreen extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
+                  if (state.erroMicrofone != null) ...[
+                    DotBanner(
+                      bg: AppColors.badBg,
+                      dotColor: AppColors.bad,
+                      textColor: AppColors.bad,
+                      fontSize: 12.5,
+                      text: state.erroMicrofone!,
+                    ),
+                    const SizedBox(height: 12),
+                  ],
                   const DotBanner(
                     bg: AppColors.warnBg,
                     dotColor: AppColors.warnTxt,
@@ -91,8 +102,8 @@ class MicrofoneScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   PrimaryButton(
-                    label: testado ? 'Testar novamente' : 'Testar microfone',
-                    onPressed: state.testarMicrofone,
+                    label: testando ? 'Testando…' : (testado ? 'Testar novamente' : 'Testar microfone'),
+                    onPressed: testando ? null : state.testarMicrofone,
                   ),
                   if (testado) ...[
                     const SizedBox(height: 9),

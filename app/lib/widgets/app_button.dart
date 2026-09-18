@@ -54,6 +54,8 @@ class SecondaryButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final double height;
   final Color textColor;
+  final Color borderColor;
+  final IconData? icon;
 
   const SecondaryButton({
     super.key,
@@ -61,6 +63,8 @@ class SecondaryButton extends StatelessWidget {
     required this.onPressed,
     this.height = 52,
     this.textColor = AppColors.ink,
+    this.borderColor = AppColors.line,
+    this.icon,
   });
 
   @override
@@ -74,14 +78,23 @@ class SecondaryButton extends StatelessWidget {
         child: InkWell(
           onTap: onPressed,
           borderRadius: BorderRadius.circular(AppRadii.button),
-          highlightColor: AppColors.hoverBorder.withValues(alpha: 0.15),
+          highlightColor: borderColor.withValues(alpha: 0.15),
           child: Container(
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(AppRadii.button),
-              border: Border.all(color: AppColors.line, width: 1.5),
+              border: Border.all(color: borderColor, width: 1.5),
             ),
             child: Center(
-              child: Text(label, style: AppText.ps(16, weight: FontWeight.w600, color: textColor)),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 18, color: textColor),
+                    const SizedBox(width: 8),
+                  ],
+                  Text(label, style: AppText.ps(16, weight: FontWeight.w600, color: textColor)),
+                ],
+              ),
             ),
           ),
         ),

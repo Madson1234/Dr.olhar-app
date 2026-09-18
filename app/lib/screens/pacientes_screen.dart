@@ -8,6 +8,7 @@ import '../theme/tokens.dart';
 import '../widgets/app_button.dart';
 import '../widgets/dialog_overlay.dart';
 import '../widgets/info_banner.dart';
+import '../widgets/perfil_drawer.dart';
 
 class PacientesScreen extends StatelessWidget {
   const PacientesScreen({super.key});
@@ -17,6 +18,7 @@ class PacientesScreen extends StatelessWidget {
     final state = context.watch<AppState>();
     return Scaffold(
       backgroundColor: AppColors.bg,
+      drawer: const PerfilDrawer(),
       body: SafeArea(
         child: Stack(
           children: [
@@ -73,6 +75,22 @@ class _Header extends StatelessWidget {
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              SizedBox(
+                width: 36,
+                height: 36,
+                child: Material(
+                  color: Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(10),
+                    onTap: () => Scaffold.of(context).openDrawer(),
+                    child: const Center(
+                      child: Icon(Icons.menu_rounded, size: 22, color: AppColors.ink),
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,

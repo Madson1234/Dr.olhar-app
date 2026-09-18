@@ -63,6 +63,9 @@ class AppState extends ChangeNotifier {
   /// Caminho do arquivo WAV da captura em revisão (nulo fora da tela 07).
   String? caminhoGravado;
 
+  // Sessão offline de 12h (ver aviso LGPD da tela de login).
+  DateTime? _sessaoIniciadaEm;
+
   @override
   void dispose() {
     _timer?.cancel();
@@ -100,11 +103,32 @@ class AppState extends ChangeNotifier {
   }
 
   // ── Login ────────────────────────────────────────────────────────────
-  void entrar() => ir(Tela.hoje);
+  void entrar() {
+    _sessaoIniciadaEm = DateTime.now();
+    ir(Tela.hoje);
+  }
+
+  void sair() {
+    _sessaoIniciadaEm = null;
+    reiniciar();
+  }
+
+  /// Tempo restante da sessão offline de 12h, formatado "Xh Ymin".
+  String get sessaoExpiraEm {
+    final inicio = _sessaoIniciadaEm;
+    if (inicio == null) return '—';
+    final restante = inicio.add(const Duration(hours: 12)).difference(DateTime.now());
+    if (restante.isNegative) return 'expirada';
+    return '${restante.inHours} h ${restante.inMinutes % 60} min';
+  }
 
   // ── Pacientes ────────────────────────────────────────────────────────
   int get totalVisitas => pacientes.length;
   int get concluidas => coletados.isEmpty ? 0 : 1; // demo counter, matches prototype's fixed "1"
+
+  /// Visitas ainda não sincronizadas (ícone de nuvem/enviando/offline na
+  /// lista) — o que fica "guardado no aparelho" ao sair da conta.
+  int get visitasNaFila => pacientes.where((p) => p.sync != SyncBase.nuvem).length;
 
   void abrirPaciente(Paciente p) {
     pacienteSel = p.nome;

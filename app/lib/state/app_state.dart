@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
 import 'package:record/record.dart' show Amplitude;
 
@@ -21,10 +22,10 @@ class AppState extends ChangeNotifier {
   String? pontoId;
   final Set<String> coletados = {};
 
-  // Connectivity is mocked as always-on here; the dev-only "Conexão"
-  // simulation toggle from the prototype's sidebar chrome is scaffolding,
-  // not part of the app. Wire this to a real connectivity signal later.
-  final bool online = true;
+  // Conectividade real (substitui o toggle "Conexão" do protótipo, que era
+  // só andaime do sidebar de simulação, não parte do app).
+  bool online = true;
+  StreamSubscription<List<ConnectivityResult>>? _connSub;
 
   final List<Paciente> pacientes = List.of(pacientesMock);
   int _nextPacienteId = 1000;
@@ -63,13 +64,48 @@ class AppState extends ChangeNotifier {
   /// Caminho do arquivo WAV da captura em revisão (nulo fora da tela 07).
   String? caminhoGravado;
 
-  // Sessão offline de 12h (ver aviso LGPD da tela de login).
-  DateTime? _sessaoIniciadaEm;
+  // Sessão offline de 12h (ver aviso LGPD da tela de login): é um
+  // orçamento que só desconta enquanto o aparelho está offline — o texto
+  // do aviso é "válido por 12h em modo offline", não um timeout fixo desde
+  // o login. Enquanto online, presume-se que a sessão se renova sozinha.
+  static const _orcamentoOffline = Duration(hours: 12);
+  bool _sessaoAtiva = false;
+  Duration _offlineAcumulado = Duration.zero;
+  DateTime? _offlineDesde;
+
+  AppState() {
+    _escutarConectividade();
+  }
+
+  Future<void> _escutarConectividade() async {
+    final conectividade = Connectivity();
+    try {
+      _aplicarConectividade(await conectividade.checkConnectivity());
+    } catch (_) {
+      // Sem suporte à checagem nesta plataforma (ex.: alguns ambientes de
+      // teste) — mantém o valor inicial (online) e segue ouvindo mudanças.
+    }
+    _connSub = conectividade.onConnectivityChanged.listen(_aplicarConectividade);
+  }
+
+  void _aplicarConectividade(List<ConnectivityResult> resultados) {
+    final novoOnline = resultados.any((r) => r != ConnectivityResult.none);
+    if (novoOnline == online) return;
+    if (!novoOnline) {
+      _offlineDesde = DateTime.now();
+    } else if (_offlineDesde != null) {
+      _offlineAcumulado += DateTime.now().difference(_offlineDesde!);
+      _offlineDesde = null;
+    }
+    online = novoOnline;
+    notifyListeners();
+  }
 
   @override
   void dispose() {
     _timer?.cancel();
     _ampSub?.cancel();
+    _connSub?.cancel();
     _recorderService.dispose();
     playerService.dispose();
     super.dispose();
@@ -104,20 +140,32 @@ class AppState extends ChangeNotifier {
 
   // ── Login ────────────────────────────────────────────────────────────
   void entrar() {
-    _sessaoIniciadaEm = DateTime.now();
+    _sessaoAtiva = true;
+    _offlineAcumulado = Duration.zero;
+    _offlineDesde = online ? null : DateTime.now();
     ir(Tela.hoje);
   }
 
   void sair() {
-    _sessaoIniciadaEm = null;
+    _sessaoAtiva = false;
+    _offlineAcumulado = Duration.zero;
+    _offlineDesde = null;
     reiniciar();
   }
 
-  /// Tempo restante da sessão offline de 12h, formatado "Xh Ymin".
+  /// Tempo offline já consumido nesta sessão — soma o que já foi
+  /// consolidado nas trocas online↔offline com o trecho em curso, se o
+  /// aparelho estiver offline agora.
+  Duration get _offlineConsumido {
+    final emCurso = (!online && _offlineDesde != null) ? DateTime.now().difference(_offlineDesde!) : Duration.zero;
+    return _offlineAcumulado + emCurso;
+  }
+
+  /// Orçamento restante das 12h offline, formatado "Xh Ymin". Só desconta
+  /// enquanto o aparelho está sem rede; volta a ficar parado ao reconectar.
   String get sessaoExpiraEm {
-    final inicio = _sessaoIniciadaEm;
-    if (inicio == null) return '—';
-    final restante = inicio.add(const Duration(hours: 12)).difference(DateTime.now());
+    if (!_sessaoAtiva) return '—';
+    final restante = _orcamentoOffline - _offlineConsumido;
     if (restante.isNegative) return 'expirada';
     return '${restante.inHours} h ${restante.inMinutes % 60} min';
   }
